@@ -25,10 +25,9 @@ defmodule Main do
   Create 10 random connections for each node in parallel.
   """
   def randomize_connections(nodes) do
-    pid = self
-    # Parallel map to bind nodes together
-    nodes |> Enum.map(fn(node) ->
-      spawn_link fn -> 
+    # Chunk and parallelize creating connections
+    nodes |> Enum.chunk(1000, 1000, []) |> Enum.map(fn(chunk) ->
+      chunk |> pmap fn(node) -> 
         # This was a doozy! Not seeding here causes shuffle to return the 
         # *same* list every time, since it is being called in a new process
         # and seeded from the same value.
@@ -38,11 +37,20 @@ defmodule Main do
             :gen_server.cast(node, {:add_friend, friend})
           end
         end
-
-        pid <- :ok
+        :ok
       end
-    end) |> Enum.map (fn(_pid) -> 
-      receive do :ok -> :ok end
+      IO.puts "Processed chunk."
+    end)
+  end
+
+  defp pmap(collection, f) do
+    pid = self
+    collection |> Enum.map(fn(el) -> 
+      spawn_link fn -> 
+        pid <- f.(el)
+      end
+    end) |> Enum.map (fn(pid) ->
+      receive do result -> result end
     end)
   end
 
