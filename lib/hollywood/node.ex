@@ -23,16 +23,25 @@ defmodule Hollywood.Node do
     gossip_loop pid
   end
 
+  @doc"""
+  Get the current mood and the date on which it was set.
+  """
   def handle_call(:mood, _from, state) do
     {:reply, {state.mood, state.date}, state}
   end
 
+  @doc"""
+  Add a neighbor to the node.
+  """
   def handle_cast({:add_friend, pid}, State[friends: friends, mood: mood]) do
     {:noreply, State[friends: [pid|friends], mood: mood]}
   end
 
+  @doc"""
+  Change the node's mood. A node's mood will change when it is gossipped by 
+  another node whose mood is more recent.
+  """
   def handle_cast({:change_mood, mood, date}, state) do
-    # Change mood and start gossipping friends
     if mood != state.mood and date > state.date do
       state = State[friends: state.friends, mood: mood, date: date]
       pid = self
@@ -40,6 +49,10 @@ defmodule Hollywood.Node do
     {:noreply, state}
   end
 
+  @doc"""
+  Propagate the node's mood by choosing a random neighbor and 
+  changing their mood.
+  """
   def handle_cast(:gossip, state) do
     case state.friends |> Enum.shuffle |> Enum.first do
       nil -> {:noreply, state}
